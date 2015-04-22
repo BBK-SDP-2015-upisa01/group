@@ -1,8 +1,19 @@
+import akka.actor.Actor
 // TODO
 //
 // Make this an actor and write a message handler for at least the
 // set method.
 //
+
+case class setMessage(x: Int, y: Int, c: Colour)
+
+class Coordinator extends Actor{
+
+  def receive = {
+    case setMessage(x,y,c) => Coordinator.set(x, y, c)
+  }
+}
+
 object Coordinator {
   def init(im: Image, of: String) = {
     image = im
