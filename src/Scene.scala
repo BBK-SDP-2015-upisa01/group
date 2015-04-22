@@ -1,3 +1,5 @@
+import akka.actor.{Props, ActorSystem}
+
 object Scene {
 
   import java.io.{FileReader, LineNumberReader}
@@ -66,6 +68,10 @@ class Scene private(val objects: List[Shape], val lights: List[Light]) {
     // pixels.  Each actor should send the Coordinator messages to set the
     // color of a pixel.  The actor need not receive any messages.
 
+    val system = ActorSystem("System")
+    val actor = system.actorOf(Props[Coordinator], "coordinator")
+
+
     for (y <- 0 until height) {
       for (x <- 0 until width) {
 
@@ -92,7 +98,9 @@ class Scene private(val objects: List[Shape], val lights: List[Light]) {
         if (Vector(colour.r, colour.g, colour.b).norm > 1)
           Trace.lightCount += 1
 
-        Coordinator.set(x, y, colour)
+        //Coordinator.set(x, y, colour)
+        actor ! setMessage(x,y,colour)
+
       }
     }
   }
