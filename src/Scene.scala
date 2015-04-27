@@ -1,5 +1,12 @@
 import akka.actor.{Props, ActorSystem}
 
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration._
+import scala.util.{Failure, Success}
+import akka.pattern.ask
+import akka.util.Timeout
+
 object Scene {
 
   import java.io.{FileReader, LineNumberReader}
@@ -70,36 +77,47 @@ class Scene private(val objects: List[Shape], val lights: List[Light]) {
 
     val system = ActorSystem("System")
     val actor = system.actorOf(Props[Coordinator], "coordinator")
-
+    var colour = Colour.black
 
     for (y <- 0 until height) {
       for (x <- 0 until width) {
 
-        // This loop body can be sequential.
-        var colour = Colour.black
+        val future = Future {
 
-        for (dx <- 0 until ss) {
-          for (dy <- 0 until ss) {
+          // This loop body can be sequential.
+          //var colour = Colour.black
 
-            // Create a vector to the pixel on the view plane formed when
-            // the eye is at the origin and the normal is the Z-axis.
-            val dir = Vector(
-              (sinf * 2 * ((x + dx.toFloat / ss) / width - .5)).toFloat,
-              (sinf * 2 * (height.toFloat / width) * (.5 - (y + dy.toFloat / ss) / height)).toFloat,
-              cosf.toFloat).normalized
+          for (dx <- 0 until ss) {
+            for (dy <- 0 until ss) {
 
-            val c = trace(Ray(eye, dir)) / (ss * ss)
-            colour += c
+              // Create a vector to the pixel on the view plane formed when
+              // the eye is at the origin and the normal is the Z-axis.
+              val dir = Vector(
+                (sinf * 2 * ((x + dx.toFloat / ss) / width - .5)).toFloat,
+                (sinf * 2 * (height.toFloat / width) * (.5 - (y + dy.toFloat / ss) / height)).toFloat,
+                cosf.toFloat).normalized
+
+              val c = trace(Ray(eye, dir)) / (ss * ss)
+              colour += c
+            }
           }
+
+          if (Vector(colour.r, colour.g, colour.b).norm < 1)
+            Trace.darkCount += 1
+          if (Vector(colour.r, colour.g, colour.b).norm > 1)
+            Trace.lightCount += 1
+
+          //Coordinator.set(x, y, colour)
+          // implicit val timeout = Timeout(5 seconds)
+          val actorFuture = actor ! setMessage(x,y,colour)
+
         }
 
-        if (Vector(colour.r, colour.g, colour.b).norm < 1)
-          Trace.darkCount += 1
-        if (Vector(colour.r, colour.g, colour.b).norm > 1)
-          Trace.lightCount += 1
-
-        //Coordinator.set(x, y, colour)
-        actor ! setMessage(x,y,colour)
+        future.onComplete {
+          case Success(value) => { println("finished")
+          }
+          case Failure(e) => e.printStackTrace
+        }
 
       }
     }
